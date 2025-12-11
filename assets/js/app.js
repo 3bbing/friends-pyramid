@@ -13,6 +13,7 @@ let lastServerNow = Math.floor(Date.now() / 1000);
 let currentPath = [];
 let currentPyramidKey = '';
 let manualLobbyView = false;
+let redirectedToPyramid = false;
 const colorPalette = ['#ef4444', '#22c55e', '#3b82f6', '#f97316', '#a855f7', '#14b8a6', '#f59e0b', '#e11d48'];
 
 function colorForPlayer(id) {
@@ -362,6 +363,14 @@ function updateUi(lobby) {
             stayBtn.dataset.active = stayInLobby ? '1' : '0';
         }
     }
+    if (phase === 'ROUND_REVEAL' && !redirectedToPyramid) {
+        redirectedToPyramid = true;
+        window.location.href = `pyramid.php?team=${encodeURIComponent(teamId)}`;
+        return;
+    }
+    document.getElementById('lobby-view').classList.toggle('hidden', phase !== 'LOBBY_WAITING');
+    document.getElementById('round-view').classList.toggle('hidden', phase !== 'ROUND_ACTIVE');
+    document.getElementById('reveal-view').classList.toggle('hidden', phase !== 'ROUND_REVEAL');
 
     const playerList = document.getElementById('players');
     playerList.innerHTML = lobby.players.map(p => `<div class="pill ${p.is_host ? 'host' : ''}">${p.name}</div>`).join('');
