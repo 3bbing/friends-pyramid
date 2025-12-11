@@ -30,45 +30,22 @@ function renderOverview(pyramid, answersByPlayer) {
         return;
     }
     const nodes = pyramid.nodes || [];
-    const depth = pyramid.depth || 0;
     const activePath = answersByPlayer[playerId] || [];
-    const levels = Array.from({ length: depth }, (_, level) => {
-        const startIdx = Math.pow(2, level) - 1;
-        const width = Math.pow(2, level);
-        return Array.from({ length: width }, (_, offset) => {
-            const id = startIdx + offset;
-            return nodes.find((n) => (n.id || 0) === id) || { id };
-        });
-    });
-
-    const html = levels
-        .map((levelNodes, level) => {
-            const row = levelNodes
-                .map((node) => {
-                    const path = indexToPath(node.id || 0);
-                    const pathStr = path.join('');
-                    const truthPrefix = activePath.slice(0, path.length).join('');
-                    const isOnPath = truthPrefix === pathStr;
-                    const nextStep = activePath[path.length];
-                    const label = path.length ? path.join(' / ') : 'Start';
-                    const question = node.question || 'Leer';
-                    const leftActive = nextStep === 'L' && isOnPath;
-                    const rightActive = nextStep === 'R' && isOnPath;
-                    return `<div class="pyramid-node ${isOnPath ? 'active' : ''}">
-                        <div class="muted">${label}</div>
-                        <div class="question">${question}</div>
-                        <div class="options">
-                            <span class="pill ${leftActive ? 'match' : ''}">L: ${node.optionA || ''}</span>
-                            <span class="pill ${rightActive ? 'match' : ''}">R: ${node.optionB || ''}</span>
-                        </div>
-                    </div>`;
-                })
-                .join('');
-            return `<div class="pyramid-row" data-level="${level + 1}">${row}</div>`;
-        })
-        .join('');
-
-    overviewEl.innerHTML = `<h2>Alle Karten</h2><p class="muted">Die aktuelle Pyramide nach Ebenen.</p><div class="pyramid-grid">${html}</div>`;
+    const html = nodes.map(node => {
+        const path = indexToPath(node.id || 0);
+        const pathLabel = path.length ? path.join(' / ') : 'Start';
+        const truthPrefix = activePath.slice(0, path.length).join('');
+        const isOnPath = truthPrefix === path.join('');
+        return `<div class="card level ${isOnPath ? 'info' : ''}">
+            <div class="muted">Pfad ${pathLabel}</div>
+            <div class="question">${node.question || ''}</div>
+            <div class="options">
+                <span class="pill ${activePath[path.length] === 'L' && isOnPath ? 'match' : ''}">Links: ${node.optionA || ''}</span>
+                <span class="pill ${activePath[path.length] === 'R' && isOnPath ? 'match' : ''}">Rechts: ${node.optionB || ''}</span>
+            </div>
+        </div>`;
+    }).join('');
+    overviewEl.innerHTML = `<h2>Alle Karten</h2><p class="muted">Alle Knoten der aktuellen Pyramide mit Pfad-Markern.</p>${html}`;
 }
 
 function renderEditor(pyramid, answersByPlayer) {
