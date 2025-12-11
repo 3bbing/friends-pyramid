@@ -42,18 +42,16 @@ function nodeIndex(path) {
     return idx;
 }
 
-function renderPyramidForm(pyramid, lobby, existingPath = []) {
+function renderPyramidForm(pyramid, existingPath = []) {
     const container = document.getElementById('pyramid-form');
     if (!pyramid) { container.innerHTML = '<p>Keine Pyramide geladen.</p>'; return; }
     const depth = pyramid.depth;
     const nodes = pyramid.nodes;
     let path = [...existingPath];
-    const activeName = lobby ? displayName(lobby, lobby.game_state?.active_player_id) : '';
 
     function render() {
-        const visibleLevels = Math.min(depth, path.length + 1);
-        let html = `<div class="panel"><strong>Du antwortest im Bezug auf: ${activeName || 'Aktive Person'}</strong><p class="muted">Frage für Frage, Ebene für Ebene. Jede Ebene wird erst sichtbar, wenn du die davor gewählt hast.</p></div>`;
-        for (let level = 0; level < visibleLevels; level++) {
+        let html = '<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person.</p>';
+        for (let level = 0; level < depth; level++) {
             const idx = nodeIndex(path.slice(0, level));
             const card = nodes[idx];
             if (!card) continue;
@@ -169,7 +167,7 @@ function updateUi(lobby) {
         const remaining = timer ? Math.max(0, timer - (lastServerNow - startedAt)) : null;
         const timerLabel = timer ? `${remaining}s verbleibend` : 'Kein Timer aktiv';
         meta.innerHTML = `<h2>Runde ${lobby.game_state.round_index + 1}</h2><p>Aktiv: ${displayName(lobby, lobby.game_state.active_player_id)}</p><p class="muted">Alle tippen gleichzeitig, niemand sieht die anderen bis zur Auflösung.</p><p class="muted">Pools: ${selectedPoolLabels(lobby.game_state.selected_pools)}</p><p class="pill timer">${timerLabel}</p>`;
-        renderPyramidForm(lobby.game_state.pyramid, lobby);
+        renderPyramidForm(lobby.game_state.pyramid);
         const finishedIds = Object.keys(lobby.game_state.finished || {});
         const waiting = lobby.players.filter(p => !finishedIds.includes(p.player_id)).map(p => p.name);
         const finished = finishedIds.length;

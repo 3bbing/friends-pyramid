@@ -53,7 +53,6 @@ fieldset {
   margin: .5rem 0;
 }
 .pool-list label { display: flex; align-items: center; gap: .5rem; color: var(--text); }
-.panel { background: #0b1222; border: 1px solid #334155; border-radius: 12px; padding: .75rem; margin-bottom: .75rem; }
 button {
   cursor: pointer;
   border: none;
