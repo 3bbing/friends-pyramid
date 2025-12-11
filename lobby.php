@@ -48,6 +48,7 @@ $inviteLink = sprintf('%s/join.php?team=%s&token=%s', dirname($_SERVER['REQUEST_
     <header>
         <h1><?= htmlspecialchars($team['name']); ?> – Lobby</h1>
         <p>Invite-Link: <code><?= htmlspecialchars($inviteLink); ?></code></p>
+        <button id="stay-in-lobby" class="secondary hidden" type="button">In der Lobby bleiben</button>
     </header>
     <main class="card">
         <div id="lobby-view" class="view">

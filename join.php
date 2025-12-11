@@ -11,20 +11,22 @@ $teamIdentifier = '';
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $teamId = $_POST['team_id'] ?? '';
-    $teamIdentifier = sanitize_text($_POST['team_identifier'] ?? '', 60);
+    $teamIdentifier = trim($_POST['team_identifier'] ?? '');
+    $teamIdentifier = mb_substr($teamIdentifier, 0, 60);
     $token = $_POST['token'] ?? '';
     $team = $teamId ? load_team($teamId) : null;
     if (!$team && $teamIdentifier) {
         $team = find_team_by_identifier($teamIdentifier);
         $teamId = $team['id'] ?? '';
     }
-    $name = sanitize_text($_POST['player_name'] ?? '', 40);
+    $name = trim($_POST['player_name'] ?? '');
+    $name = mb_substr($name, 0, 40);
     $password = $_POST['team_password'] ?? '';
     if (!$team) {
         $error = 'Team nicht gefunden';
     } elseif (!password_verify($password, $team['password_hash'])) {
         $error = 'Passwort falsch';
-    } elseif (!empty($team['invite_token']) && $token !== $team['invite_token']) {
+    } elseif (!empty($team['invite_token']) && $token !== '' && $token !== $team['invite_token']) {
         $error = 'Invite-Link ungültig';
     } else {
         $lobby = load_lobby($teamId);

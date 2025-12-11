@@ -12,6 +12,7 @@ let pollTimer;
 let lastServerNow = Math.floor(Date.now() / 1000);
 let currentPath = [];
 let currentPyramidKey = '';
+let manualLobbyView = false;
 let redirectedToPyramid = false;
 const colorPalette = ['#ef4444', '#22c55e', '#3b82f6', '#f97316', '#a855f7', '#14b8a6', '#f59e0b', '#e11d48'];
 
@@ -345,6 +346,23 @@ function selectedPoolLabels(pools) {
 function updateUi(lobby) {
     if (!lobby || !lobby.game_state) return;
     const phase = lobby.game_state.phase;
+    const stayInLobby = manualLobbyView && phase !== 'LOBBY_WAITING';
+    const lobbyVisible = phase === 'LOBBY_WAITING' || stayInLobby;
+    document.getElementById('lobby-view').classList.toggle('hidden', !lobbyVisible);
+    document.getElementById('round-view').classList.toggle('hidden', lobbyVisible || phase !== 'ROUND_ACTIVE');
+    document.getElementById('reveal-view').classList.toggle('hidden', lobbyVisible || phase !== 'ROUND_REVEAL');
+
+    const stayBtn = document.getElementById('stay-in-lobby');
+    if (stayBtn) {
+        if (phase === 'LOBBY_WAITING') {
+            manualLobbyView = false;
+            stayBtn.classList.add('hidden');
+        } else {
+            stayBtn.classList.remove('hidden');
+            stayBtn.textContent = stayInLobby ? 'Zur Spielansicht wechseln' : 'In der Lobby bleiben';
+            stayBtn.dataset.active = stayInLobby ? '1' : '0';
+        }
+    }
     if (phase === 'ROUND_REVEAL' && !redirectedToPyramid) {
         redirectedToPyramid = true;
         window.location.href = `pyramid.php?team=${encodeURIComponent(teamId)}`;
@@ -407,6 +425,14 @@ function wireButtons() {
     });
     const force = document.getElementById('force-reveal');
     if (force) force.addEventListener('click', () => apiPost('force_reveal').then(fetchState));
+
+    const stayBtn = document.getElementById('stay-in-lobby');
+    if (stayBtn) {
+        stayBtn.addEventListener('click', () => {
+            manualLobbyView = stayBtn.dataset.active !== '1';
+            fetchState();
+        });
+    }
 
     const addQuestion = document.getElementById('add-question');
     if (addQuestion) addQuestion.addEventListener('submit', (e) => {
