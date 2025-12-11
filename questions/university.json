@@ -1,0 +1,10 @@
+[
+  {"question": "Campus-Weg", "optionA": "Mensa", "optionB": "Bib"},
+  {"question": "Lernstil", "optionA": "Früh aufstehen", "optionB": "Nachtschicht"},
+  {"question": "Projektteam", "optionA": "Kleine Gruppe", "optionB": "Großes Team"},
+  {"question": "Vorlesung", "optionA": "Erste Reihe", "optionB": "Hintere Reihe"},
+  {"question": "Klausurvorbereitung", "optionA": "Altfragen", "optionB": "Zusammenfassung"},
+  {"question": "Motivation", "optionA": "Kaffee", "optionB": "Mate"},
+  {"question": "Feierabend", "optionA": "Wohnheim", "optionB": "Bar"},
+  {"question": "Wahlpflicht", "optionA": "Praxisnah", "optionB": "Theoretisch"}
+]
