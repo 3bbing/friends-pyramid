@@ -9,6 +9,8 @@ const poolMeta = pageEl?.dataset.pools ? JSON.parse(pageEl.dataset.pools) : [];
 const poolLabelMap = Object.fromEntries(poolMeta.map(p => [p.key, p.label]));
 let pollTimer;
 let lastServerNow = Math.floor(Date.now() / 1000);
+let currentPath = [];
+let currentPyramidKey = '';
 
 function apiPost(action, body = {}) {
     const form = new FormData();
@@ -42,44 +44,58 @@ function nodeIndex(path) {
     return idx;
 }
 
-function renderPyramidForm(pyramid, existingPath = []) {
+function renderPyramidForm(pyramid, activePlayerName, existingPath = []) {
     const container = document.getElementById('pyramid-form');
     if (!pyramid) { container.innerHTML = '<p>Keine Pyramide geladen.</p>'; return; }
     const depth = pyramid.depth;
     const nodes = pyramid.nodes;
-    let path = [...existingPath];
+    const pyramidKey = `${depth}:${nodes.map(n => n.id ?? n.question ?? '').join('|')}`;
+    if (pyramidKey !== currentPyramidKey) {
+        currentPyramidKey = pyramidKey;
+        currentPath = [];
+    }
+    const submittedPath = existingPath.length ? [...existingPath] : [];
+    let path = submittedPath.length ? [...submittedPath] : [...currentPath];
 
     function render() {
-        let html = '<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person.</p>';
+        let html = `<p class="pill info">Du antwortest gerade für ${activePlayerName || 'die aktive Person'}.</p>`;
+        html += '<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person.</p>';
         for (let level = 0; level < depth; level++) {
+            if (level > path.length) break;
             const idx = nodeIndex(path.slice(0, level));
             const card = nodes[idx];
             if (!card) continue;
             const choice = path[level];
             html += `<div class="card level"><div class="question">${card.question}</div>`;
             html += `<div class="options">`;
-            html += `<button type="button" data-level="${level}" data-val="L" class="choice ${choice === 'L' ? 'active' : ''}">${card.optionA}</button>`;
-            html += `<button type="button" data-level="${level}" data-val="R" class="choice ${choice === 'R' ? 'active' : ''}">${card.optionB}</button>`;
+            html += `<button type="button" data-level="${level}" data-val="L" class="choice ${choice === 'L' ? 'active' : ''}" ${submittedPath.length ? 'disabled' : ''}>${card.optionA}</button>`;
+            html += `<button type="button" data-level="${level}" data-val="R" class="choice ${choice === 'R' ? 'active' : ''}" ${submittedPath.length ? 'disabled' : ''}>${card.optionB}</button>`;
             html += `</div></div>`;
         }
         const pathLabel = path.length ? `Aktueller Pfad: ${path.join(' / ')}` : 'Noch keine Auswahl';
         container.innerHTML = html + `<div class="status muted">${pathLabel}</div><button id="submit-path" class="primary full">Antworten abschicken</button>`;
-        container.querySelectorAll('.choice').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const lvl = Number(btn.dataset.level);
-                const val = btn.dataset.val;
-                path[lvl] = val;
-                path = path.slice(0, lvl + 1);
-                render();
+        if (!submittedPath.length) {
+            container.querySelectorAll('.choice').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const lvl = Number(btn.dataset.level);
+                    const val = btn.dataset.val;
+                    path[lvl] = val;
+                    path = path.slice(0, lvl + 1);
+                    currentPath = [...path];
+                    render();
+                });
             });
-        });
-        container.querySelector('#submit-path').addEventListener('click', () => {
-            if (path.length !== depth) {
-                alert('Bitte jede Ebene beantworten.');
-                return;
-            }
-            apiPost('submit_answers', { path: path.join('') }).then(fetchState);
-        });
+            container.querySelector('#submit-path').addEventListener('click', () => {
+                if (path.length !== depth) {
+                    alert('Bitte jede Ebene beantworten.');
+                    return;
+                }
+                currentPath = [...path];
+                apiPost('submit_answers', { path: path.join('') }).then(fetchState);
+            });
+        } else {
+            container.querySelector('#submit-path').setAttribute('disabled', 'disabled');
+        }
     }
     render();
 }
@@ -166,8 +182,10 @@ function updateUi(lobby) {
         const startedAt = Number(lobby.game_state.started_at || 0);
         const remaining = timer ? Math.max(0, timer - (lastServerNow - startedAt)) : null;
         const timerLabel = timer ? `${remaining}s verbleibend` : 'Kein Timer aktiv';
-        meta.innerHTML = `<h2>Runde ${lobby.game_state.round_index + 1}</h2><p>Aktiv: ${displayName(lobby, lobby.game_state.active_player_id)}</p><p class="muted">Alle tippen gleichzeitig, niemand sieht die anderen bis zur Auflösung.</p><p class="muted">Pools: ${selectedPoolLabels(lobby.game_state.selected_pools)}</p><p class="pill timer">${timerLabel}</p>`;
-        renderPyramidForm(lobby.game_state.pyramid);
+        const activeName = displayName(lobby, lobby.game_state.active_player_id);
+        meta.innerHTML = `<h2>Runde ${lobby.game_state.round_index + 1}</h2><p>Aktiv: ${activeName}</p><p class="muted">Alle tippen gleichzeitig, niemand sieht die anderen bis zur Auflösung.</p><p class="muted">Pools: ${selectedPoolLabels(lobby.game_state.selected_pools)}</p><p class="pill timer">${timerLabel}</p>`;
+        const existingPath = lobby.game_state.answers_by_player[playerId] || [];
+        renderPyramidForm(lobby.game_state.pyramid, activeName, existingPath);
         const finishedIds = Object.keys(lobby.game_state.finished || {});
         const waiting = lobby.players.filter(p => !finishedIds.includes(p.player_id)).map(p => p.name);
         const finished = finishedIds.length;
