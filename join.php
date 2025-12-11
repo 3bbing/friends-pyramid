@@ -6,12 +6,18 @@ ensure_session();
 $teamId = $_GET['team'] ?? '';
 $token = $_GET['token'] ?? '';
 $team = $teamId ? load_team($teamId) : null;
+$teamIdentifier = '';
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $teamId = $_POST['team_id'] ?? '';
+    $teamIdentifier = sanitize_text($_POST['team_identifier'] ?? '', 60);
     $token = $_POST['token'] ?? '';
     $team = $teamId ? load_team($teamId) : null;
+    if (!$team && $teamIdentifier) {
+        $team = find_team_by_identifier($teamIdentifier);
+        $teamId = $team['id'] ?? '';
+    }
     $name = sanitize_text($_POST['player_name'] ?? '', 40);
     $password = $_POST['team_password'] ?? '';
     if (!$team) {
@@ -63,6 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="error"><?= htmlspecialchars($error); ?></p>
         <?php endif; ?>
         <form method="post" class="stack">
+            <?php if (!$team): ?>
+                <label>Teamname oder ID<input type="text" name="team_identifier" required value="<?= htmlspecialchars($teamIdentifier); ?>"></label>
+            <?php endif; ?>
             <input type="hidden" name="team_id" value="<?= htmlspecialchars($teamId); ?>">
             <input type="hidden" name="token" value="<?= htmlspecialchars($token); ?>">
             <label>Dein Name<input type="text" name="player_name" required maxlength="40"></label>

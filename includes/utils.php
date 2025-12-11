@@ -137,6 +137,25 @@ function save_team(array $team): void
     write_json_file($file, $team);
 }
 
+function find_team_by_identifier(string $identifier): ?array
+{
+    $team = load_team($identifier);
+    if ($team) {
+        return $team;
+    }
+
+    $config = load_config();
+    $files = glob($config['teams_path'] . '/*.json');
+    foreach ($files as $file) {
+        $data = read_json_file($file);
+        if ($data && isset($data['name']) && strcasecmp($data['name'], $identifier) === 0) {
+            return $data;
+        }
+    }
+
+    return null;
+}
+
 function load_lobby(string $teamId): array
 {
     $config = load_config();
