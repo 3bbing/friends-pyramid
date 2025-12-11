@@ -88,6 +88,7 @@ $inviteLink = sprintf('%s/join.php?team=%s&token=%s', dirname($_SERVER['REQUEST_
             <div id="round-meta"></div>
             <div id="pyramid-form"></div>
             <div class="status" id="round-status"></div>
+            <p><a class="pill secondary" href="pyramid.php?team=<?= urlencode($teamId); ?>" target="_blank" rel="noopener">Gesamtpyramide in neuem Tab</a></p>
             <?php if ($player['is_host']): ?>
                 <div class="actions">
                     <button id="force-reveal" class="secondary">Force Reveal</button>
@@ -96,6 +97,7 @@ $inviteLink = sprintf('%s/join.php?team=%s&token=%s', dirname($_SERVER['REQUEST_
         </div>
         <div id="reveal-view" class="view hidden">
             <div id="reveal-summary"></div>
+            <p><a class="pill secondary" href="pyramid.php?team=<?= urlencode($teamId); ?>" target="_blank" rel="noopener">Gesamtpyramide ansehen</a></p>
             <?php if ($player['is_host']): ?>
                 <form id="next-form" class="stack inline">
                     <fieldset>

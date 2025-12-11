@@ -49,7 +49,7 @@ function renderPyramidForm(pyramid, activePlayerName, existingPath = []) {
     if (!pyramid) { container.innerHTML = '<p>Keine Pyramide geladen.</p>'; return; }
     const depth = pyramid.depth;
     const nodes = pyramid.nodes;
-    const pyramidKey = `${depth}:${nodes.map(n => n.id ?? n.question ?? '').join('|')}`;
+    const pyramidKey = `${depth}:${nodes.map(n => `${n.question}|${n.optionA}|${n.optionB}`).join('|')}`;
     if (pyramidKey !== currentPyramidKey) {
         currentPyramidKey = pyramidKey;
         currentPath = [];
