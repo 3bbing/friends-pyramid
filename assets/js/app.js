@@ -7,6 +7,7 @@ const defaultTimer = Number(pageEl?.dataset.defaultTimer || 0);
 const timerOptions = pageEl?.dataset.timers ? JSON.parse(pageEl.dataset.timers) : [0];
 const poolMeta = pageEl?.dataset.pools ? JSON.parse(pageEl.dataset.pools) : [];
 const poolLabelMap = Object.fromEntries(poolMeta.map(p => [p.key, p.label]));
+const roundHistoryEl = document.getElementById('round-history');
 let pollTimer;
 let lastServerNow = Math.floor(Date.now() / 1000);
 let currentPath = [];
@@ -162,8 +163,9 @@ function renderPyramidForm(pyramid, activePlayerName, existingPath = []) {
     let path = submittedPath.length ? [...submittedPath] : [...currentPath];
 
     function render() {
-        let html = `<p class="pill info">Du antwortest gerade für ${activePlayerName || 'die aktive Person'}.</p>`;
-        html += '<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person.</p>';
+        const targetName = activePlayerName || 'die aktive Person';
+        let html = `<p class="pill info">Du antwortest gerade für ${targetName}.</p>`;
+        html += `<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person – und antworte so wie du denkst, dass ${targetName} antworten wird.</p>`;
         for (let level = 0; level < depth; level++) {
             if (level > path.length) break;
             const idx = nodeIndex(path.slice(0, level));
@@ -271,6 +273,69 @@ function displayName(lobby, playerId) {
     return lobby.players.find(p => p.player_id === playerId)?.name || 'Unbekannt';
 }
 
+function buildRoundHistory(lobby) {
+    const history = (lobby.round_history || []).map((round, idx) => ({
+        ...round,
+        round_index: round.round_index ?? idx,
+        phase: round.phase || 'ROUND_REVEAL',
+    }));
+    const current = lobby.game_state || {};
+    if (current.pyramid) {
+        const matchIdx = history.findIndex(r => (r.round_index === (current.round_index ?? 0)) && (r.started_at === (current.started_at ?? null)));
+        const merged = {
+            ...current,
+            round_index: current.round_index ?? 0,
+            phase: current.phase || 'ROUND_ACTIVE',
+        };
+        if (matchIdx >= 0) {
+            history[matchIdx] = { ...history[matchIdx], ...merged };
+        } else {
+            history.unshift(merged);
+        }
+    }
+    return history.sort((a, b) => (b.started_at || 0) - (a.started_at || 0));
+}
+
+function roundPhaseLabel(round) {
+    if (round.phase === 'ROUND_ACTIVE') return 'Läuft';
+    if (round.phase === 'ROUND_REVEAL') return 'Auflösung';
+    return 'Abgeschlossen';
+}
+
+function renderRoundHistory(lobby) {
+    if (!roundHistoryEl) return;
+    const rounds = buildRoundHistory(lobby);
+    if (!rounds.length) {
+        roundHistoryEl.innerHTML = `<p class="muted">Noch keine Runde gespielt.</p><p><a class="pill secondary" href="pyramid.php?team=${encodeURIComponent(teamId)}">Archiv & Pyramide öffnen</a></p>`;
+        return;
+    }
+    const activeRound = rounds.find(r => r.phase === 'ROUND_ACTIVE');
+    const latestFinished = rounds.find(r => r.phase !== 'ROUND_ACTIVE');
+    const introParts = [];
+    if (activeRound) {
+        introParts.push(`Aktive Runde: ${activeRound.round_index + 1}`);
+    } else {
+        introParts.push('Keine aktive Runde.');
+    }
+    if (latestFinished) {
+        introParts.push(`Letzte Ergebnisse: Runde ${latestFinished.round_index + 1}`);
+    }
+    const items = rounds.map(round => {
+        const status = roundPhaseLabel(round);
+        const activeName = displayName(lobby, round.active_player_id);
+        return `<div class="history-row ${round.phase === 'ROUND_ACTIVE' ? 'ongoing' : ''}">
+            <div>
+                <strong>Runde ${round.round_index + 1}</strong>
+                <div class="muted">${status}${activeName ? ' · Aktiv: ' + activeName : ''}</div>
+            </div>
+            <div class="actions">
+                <a class="pill secondary" href="pyramid.php?team=${encodeURIComponent(teamId)}&round=${round.round_index}">Ansehen</a>
+            </div>
+        </div>`;
+    }).join('');
+    roundHistoryEl.innerHTML = `<p class="muted">${introParts.join(' ')}</p>${items}<p><a class="pill secondary" href="pyramid.php?team=${encodeURIComponent(teamId)}">Gesamtpyramide öffnen</a></p>`;
+}
+
 function selectedPoolLabels(pools) {
     if (!pools || !pools.length) return 'Standard';
     return pools.map(k => poolLabelMap[k] || k).join(', ');
@@ -306,6 +371,7 @@ function updateUi(lobby) {
         renderReveal(lobby);
     }
     renderScoreboard(lobby);
+    renderRoundHistory(lobby);
 }
 
 function wireButtons() {
