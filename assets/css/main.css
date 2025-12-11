@@ -93,6 +93,16 @@ button.choice.active { border: 2px solid var(--accent); }
 .level-block .truth { margin: .25rem 0; }
 .guesses { display: flex; flex-wrap: wrap; gap: .35rem; }
 .actions { margin-top: .5rem; text-align: right; }
+.pyramid-grid { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; }
+.pyramid-row { display: grid; gap: .75rem; justify-content: center; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.pyramid-row[data-level="1"] { grid-template-columns: repeat(1, minmax(180px, 220px)); }
+.pyramid-row[data-level="2"] { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+.pyramid-row[data-level="3"] { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
+.pyramid-row[data-level="4"] { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
+.pyramid-node { border: 1px solid #1f2937; border-radius: 14px; padding: .75rem; background: #0b1222; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
+.pyramid-node.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.3); }
+.pyramid-node .muted { font-size: 0.85rem; }
+.pyramid-node .pill { width: 48%; text-align: center; }
 
 @media (min-width: 720px) {
   .page { padding: 2rem; }
