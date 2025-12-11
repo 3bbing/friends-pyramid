@@ -132,6 +132,10 @@ $inviteLink = sprintf('%s/join.php?team=%s&token=%s', dirname($_SERVER['REQUEST_
         <div id="scoreboard" class="scoreboard muted">Noch keine Punkte gesammelt.</div>
     </section>
     <section class="card">
+        <h3>Rundenübersicht</h3>
+        <div id="round-history" class="stack"></div>
+    </section>
+    <section class="card">
         <h3>Fragen hinzufügen</h3>
         <form id="add-question" class="stack">
             <label>Frage<input type="text" name="question" maxlength="80" required></label>
