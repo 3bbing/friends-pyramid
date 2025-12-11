@@ -1,0 +1,10 @@
+[
+  {"question": "Date-Nacht", "optionA": "Kochen", "optionB": "Restaurant"},
+  {"question": "Urlaubsstil", "optionA": "Städtetrip", "optionB": "Strand"},
+  {"question": "Sonntag", "optionA": "Netflix", "optionB": "Spaziergang"},
+  {"question": "Geschenk", "optionA": "Selbstgemacht", "optionB": "Überraschung kaufen"},
+  {"question": "Konfliktlösung", "optionA": "Direkt reden", "optionB": "Erst abkühlen"},
+  {"question": "Haushalt", "optionA": "Plan aufstellen", "optionB": "Spontan teilen"},
+  {"question": "Jahrestag", "optionA": "Groß feiern", "optionB": "Klein und intim"},
+  {"question": "Fotos", "optionA": "Viele Schnappschüsse", "optionB": "Nur besondere Momente"}
+]
