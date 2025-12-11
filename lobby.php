@@ -48,6 +48,7 @@ $inviteLink = sprintf('%s/join.php?team=%s&token=%s', dirname($_SERVER['REQUEST_
     <header>
         <h1><?= htmlspecialchars($team['name']); ?> – Lobby</h1>
         <p>Invite-Link: <code><?= htmlspecialchars($inviteLink); ?></code></p>
+        <button id="stay-in-lobby" class="secondary hidden" type="button">In der Lobby bleiben</button>
     </header>
     <main class="card">
         <div id="lobby-view" class="view">
@@ -130,6 +131,10 @@ $inviteLink = sprintf('%s/join.php?team=%s&token=%s', dirname($_SERVER['REQUEST_
     <section class="card">
         <h3>Zwischenstand</h3>
         <div id="scoreboard" class="scoreboard muted">Noch keine Punkte gesammelt.</div>
+    </section>
+    <section class="card">
+        <h3>Rundenübersicht</h3>
+        <div id="round-history" class="stack"></div>
     </section>
     <section class="card">
         <h3>Fragen hinzufügen</h3>

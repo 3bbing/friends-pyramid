@@ -7,10 +7,12 @@ const defaultTimer = Number(pageEl?.dataset.defaultTimer || 0);
 const timerOptions = pageEl?.dataset.timers ? JSON.parse(pageEl.dataset.timers) : [0];
 const poolMeta = pageEl?.dataset.pools ? JSON.parse(pageEl.dataset.pools) : [];
 const poolLabelMap = Object.fromEntries(poolMeta.map(p => [p.key, p.label]));
+const roundHistoryEl = document.getElementById('round-history');
 let pollTimer;
 let lastServerNow = Math.floor(Date.now() / 1000);
 let currentPath = [];
 let currentPyramidKey = '';
+let manualLobbyView = false;
 const colorPalette = ['#ef4444', '#22c55e', '#3b82f6', '#f97316', '#a855f7', '#14b8a6', '#f59e0b', '#e11d48'];
 
 function colorForPlayer(id) {
@@ -162,8 +164,9 @@ function renderPyramidForm(pyramid, activePlayerName, existingPath = []) {
     let path = submittedPath.length ? [...submittedPath] : [...currentPath];
 
     function render() {
-        let html = `<p class="pill info">Du antwortest gerade für ${activePlayerName || 'die aktive Person'}.</p>`;
-        html += '<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person.</p>';
+        const targetName = activePlayerName || 'die aktive Person';
+        let html = `<p class="pill info">Du antwortest gerade für ${targetName}.</p>`;
+        html += `<p class="muted">Tippe dich durch die Ebenen und denke an die Antwort der aktiven Person – und antworte so wie du denkst, dass ${targetName} antworten wird.</p>`;
         for (let level = 0; level < depth; level++) {
             if (level > path.length) break;
             const idx = nodeIndex(path.slice(0, level));
@@ -271,6 +274,69 @@ function displayName(lobby, playerId) {
     return lobby.players.find(p => p.player_id === playerId)?.name || 'Unbekannt';
 }
 
+function buildRoundHistory(lobby) {
+    const history = (lobby.round_history || []).map((round, idx) => ({
+        ...round,
+        round_index: round.round_index ?? idx,
+        phase: round.phase || 'ROUND_REVEAL',
+    }));
+    const current = lobby.game_state || {};
+    if (current.pyramid) {
+        const matchIdx = history.findIndex(r => (r.round_index === (current.round_index ?? 0)) && (r.started_at === (current.started_at ?? null)));
+        const merged = {
+            ...current,
+            round_index: current.round_index ?? 0,
+            phase: current.phase || 'ROUND_ACTIVE',
+        };
+        if (matchIdx >= 0) {
+            history[matchIdx] = { ...history[matchIdx], ...merged };
+        } else {
+            history.unshift(merged);
+        }
+    }
+    return history.sort((a, b) => (b.started_at || 0) - (a.started_at || 0));
+}
+
+function roundPhaseLabel(round) {
+    if (round.phase === 'ROUND_ACTIVE') return 'Läuft';
+    if (round.phase === 'ROUND_REVEAL') return 'Auflösung';
+    return 'Abgeschlossen';
+}
+
+function renderRoundHistory(lobby) {
+    if (!roundHistoryEl) return;
+    const rounds = buildRoundHistory(lobby);
+    if (!rounds.length) {
+        roundHistoryEl.innerHTML = `<p class="muted">Noch keine Runde gespielt.</p><p><a class="pill secondary" href="pyramid.php?team=${encodeURIComponent(teamId)}">Archiv & Pyramide öffnen</a></p>`;
+        return;
+    }
+    const activeRound = rounds.find(r => r.phase === 'ROUND_ACTIVE');
+    const latestFinished = rounds.find(r => r.phase !== 'ROUND_ACTIVE');
+    const introParts = [];
+    if (activeRound) {
+        introParts.push(`Aktive Runde: ${activeRound.round_index + 1}`);
+    } else {
+        introParts.push('Keine aktive Runde.');
+    }
+    if (latestFinished) {
+        introParts.push(`Letzte Ergebnisse: Runde ${latestFinished.round_index + 1}`);
+    }
+    const items = rounds.map(round => {
+        const status = roundPhaseLabel(round);
+        const activeName = displayName(lobby, round.active_player_id);
+        return `<div class="history-row ${round.phase === 'ROUND_ACTIVE' ? 'ongoing' : ''}">
+            <div>
+                <strong>Runde ${round.round_index + 1}</strong>
+                <div class="muted">${status}${activeName ? ' · Aktiv: ' + activeName : ''}</div>
+            </div>
+            <div class="actions">
+                <a class="pill secondary" href="pyramid.php?team=${encodeURIComponent(teamId)}&round=${round.round_index}">Ansehen</a>
+            </div>
+        </div>`;
+    }).join('');
+    roundHistoryEl.innerHTML = `<p class="muted">${introParts.join(' ')}</p>${items}<p><a class="pill secondary" href="pyramid.php?team=${encodeURIComponent(teamId)}">Gesamtpyramide öffnen</a></p>`;
+}
+
 function selectedPoolLabels(pools) {
     if (!pools || !pools.length) return 'Standard';
     return pools.map(k => poolLabelMap[k] || k).join(', ');
@@ -279,9 +345,23 @@ function selectedPoolLabels(pools) {
 function updateUi(lobby) {
     if (!lobby || !lobby.game_state) return;
     const phase = lobby.game_state.phase;
-    document.getElementById('lobby-view').classList.toggle('hidden', phase !== 'LOBBY_WAITING');
-    document.getElementById('round-view').classList.toggle('hidden', phase !== 'ROUND_ACTIVE');
-    document.getElementById('reveal-view').classList.toggle('hidden', phase !== 'ROUND_REVEAL');
+    const stayInLobby = manualLobbyView && phase !== 'LOBBY_WAITING';
+    const lobbyVisible = phase === 'LOBBY_WAITING' || stayInLobby;
+    document.getElementById('lobby-view').classList.toggle('hidden', !lobbyVisible);
+    document.getElementById('round-view').classList.toggle('hidden', lobbyVisible || phase !== 'ROUND_ACTIVE');
+    document.getElementById('reveal-view').classList.toggle('hidden', lobbyVisible || phase !== 'ROUND_REVEAL');
+
+    const stayBtn = document.getElementById('stay-in-lobby');
+    if (stayBtn) {
+        if (phase === 'LOBBY_WAITING') {
+            manualLobbyView = false;
+            stayBtn.classList.add('hidden');
+        } else {
+            stayBtn.classList.remove('hidden');
+            stayBtn.textContent = stayInLobby ? 'Zur Spielansicht wechseln' : 'In der Lobby bleiben';
+            stayBtn.dataset.active = stayInLobby ? '1' : '0';
+        }
+    }
 
     const playerList = document.getElementById('players');
     playerList.innerHTML = lobby.players.map(p => `<div class="pill ${p.is_host ? 'host' : ''}">${p.name}</div>`).join('');
@@ -306,6 +386,7 @@ function updateUi(lobby) {
         renderReveal(lobby);
     }
     renderScoreboard(lobby);
+    renderRoundHistory(lobby);
 }
 
 function wireButtons() {
@@ -335,6 +416,14 @@ function wireButtons() {
     });
     const force = document.getElementById('force-reveal');
     if (force) force.addEventListener('click', () => apiPost('force_reveal').then(fetchState));
+
+    const stayBtn = document.getElementById('stay-in-lobby');
+    if (stayBtn) {
+        stayBtn.addEventListener('click', () => {
+            manualLobbyView = stayBtn.dataset.active !== '1';
+            fetchState();
+        });
+    }
 
     const addQuestion = document.getElementById('add-question');
     if (addQuestion) addQuestion.addEventListener('submit', (e) => {
