@@ -30,6 +30,7 @@ if (!$player) {
         <p><a class="pill secondary" href="lobby.php?team=<?= urlencode($teamId); ?>">Zurück zur Lobby</a></p>
     </header>
     <main class="card">
+        <div id="round-picker" class="stack"></div>
         <div id="pyramid-overview" class="stack"></div>
         <div id="path-editor" class="stack"></div>
     </main>

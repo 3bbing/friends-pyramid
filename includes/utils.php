@@ -166,6 +166,7 @@ function load_lobby(string $teamId): array
             'team_id' => $teamId,
             'lobby_id' => $teamId,
             'players' => [],
+            'round_history' => [],
             'game_state' => [
                 'phase' => 'LOBBY_WAITING',
                 'round_index' => 0,
@@ -180,6 +181,9 @@ function load_lobby(string $teamId): array
             ],
         ];
         write_json_file($file, $data);
+    }
+    if (!isset($data['round_history']) || !is_array($data['round_history'])) {
+        $data['round_history'] = [];
     }
     return $data;
 }
@@ -362,6 +366,35 @@ function compute_scores(array $lobby): array
     return $scores;
 }
 
+function append_round_history(array &$lobby): void
+{
+    if (!isset($lobby['round_history']) || !is_array($lobby['round_history'])) {
+        $lobby['round_history'] = [];
+    }
+    $state = $lobby['game_state'] ?? [];
+    if (empty($state['pyramid'])) {
+        return;
+    }
+    $roundIndex = $state['round_index'] ?? 0;
+    $startedAt = $state['started_at'] ?? null;
+    foreach ($lobby['round_history'] as $entry) {
+        if (($entry['round_index'] ?? null) === $roundIndex && ($entry['started_at'] ?? null) === $startedAt) {
+            return;
+        }
+    }
+    $lobby['round_history'][] = [
+        'round_index' => $roundIndex,
+        'active_player_id' => $state['active_player_id'] ?? null,
+        'pyramid' => $state['pyramid'] ?? null,
+        'answers_by_player' => $state['answers_by_player'] ?? [],
+        'finished' => $state['finished'] ?? [],
+        'scores' => $state['scores'] ?? [],
+        'phase' => 'ROUND_REVEAL',
+        'started_at' => $startedAt,
+        'finished_at' => time(),
+    ];
+}
+
 function finalize_round(array &$lobby): void
 {
     $lobby['game_state']['scores'] = compute_scores($lobby);
@@ -371,6 +404,7 @@ function finalize_round(array &$lobby): void
     foreach ($lobby['game_state']['scores'] as $pid => $score) {
         $lobby['game_state']['totals'][$pid] = ($lobby['game_state']['totals'][$pid] ?? 0) + ($score['points'] ?? 0);
     }
+    append_round_history($lobby);
     $lobby['game_state']['phase'] = 'ROUND_REVEAL';
 }
 
