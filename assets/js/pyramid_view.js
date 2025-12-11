@@ -5,6 +5,17 @@ const teamId = pyramidPage?.dataset.team;
 const playerId = pyramidPage?.dataset.player;
 let pollTimer;
 
+const colorPalette = ['#ef4444', '#22c55e', '#3b82f6', '#f97316', '#a855f7', '#14b8a6', '#f59e0b', '#e11d48'];
+
+function colorForPlayer(id) {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+        hash = (hash << 5) - hash + id.charCodeAt(i);
+        hash |= 0;
+    }
+    return colorPalette[Math.abs(hash) % colorPalette.length];
+}
+
 function apiPost(action, body = {}) {
     const form = new FormData();
     form.append('team_id', teamId);
@@ -23,73 +34,123 @@ function indexToPath(idx) {
     return parts.reverse();
 }
 
-function renderOverview(pyramid, answersByPlayer) {
+function pathLabel(path) {
+    return path && path.length ? path.join(' / ') : '—';
+}
+
+function groupByLevel(pyramid) {
+    const levels = [];
+    const depth = pyramid.depth || 0;
+    const nodes = pyramid.nodes || [];
+    for (let level = 0; level < depth; level++) {
+        const start = (2 ** level) - 1;
+        const count = 2 ** level;
+        levels.push(nodes.slice(start, start + count));
+    }
+    return levels;
+}
+
+function buildPyramidGrid(pyramid) {
+    const levels = groupByLevel(pyramid);
+    return levels.map((levelNodes, idx) => {
+        const level = idx + 1;
+        const cards = levelNodes.map(node => `<div class="pyramid-card" data-node-id="${node.id}">
+                <div class="muted">Pfad ${pathLabel(indexToPath(node.id || 0))}</div>
+                <div class="question">${node.question || ''}</div>
+                <div class="option-row">
+                    <div class="option left"><small>Links</small>${node.optionA || ''}</div>
+                    <div class="option right"><small>Rechts</small>${node.optionB || ''}</div>
+                </div>
+            </div>`).join('');
+        return `<div class="pyramid-row" data-level="${level}" style="--columns:${levelNodes.length}">${cards}</div>`;
+    }).join('');
+}
+
+function anchorPoints(cardEl, containerRect) {
+    const rect = cardEl.getBoundingClientRect();
+    const left = { x: rect.left + rect.width * 0.25 - containerRect.left, y: rect.bottom - containerRect.top - rect.height * 0.15 };
+    const right = { x: rect.left + rect.width * 0.75 - containerRect.left, y: rect.bottom - containerRect.top - rect.height * 0.15 };
+    const top = { x: rect.left + rect.width / 2 - containerRect.left, y: rect.top - containerRect.top - 6 };
+    return { left, right, top };
+}
+
+function drawPathLines(container, pyramid, answersByPlayer, players = []) {
+    const svg = container.querySelector('.pyramid-lines');
+    const grid = container.querySelector('.pyramid-grid');
+    if (!svg || !grid) return;
+    const containerRect = grid.getBoundingClientRect();
+    svg.setAttribute('width', containerRect.width);
+    svg.setAttribute('height', containerRect.height);
+    svg.setAttribute('viewBox', `0 0 ${containerRect.width} ${containerRect.height}`);
+    const nodeEls = {};
+    grid.querySelectorAll('.pyramid-card').forEach(card => {
+        const id = Number(card.dataset.nodeId);
+        nodeEls[id] = card;
+    });
+    const paths = Object.entries(answersByPlayer || {});
+    const lines = paths.map(([pid, path]) => {
+        if (!Array.isArray(path) || !path.length) return '';
+        let idx = 0;
+        let currentCard = nodeEls[idx];
+        if (!currentCard) return '';
+        const points = [];
+        for (let i = 0; i < path.length; i++) {
+            const choice = path[i];
+            const anchors = anchorPoints(currentCard, containerRect);
+            const from = choice === 'L' ? anchors.left : anchors.right;
+            points.push(from);
+            const childIdx = choice === 'L' ? idx * 2 + 1 : idx * 2 + 2;
+            const childCard = nodeEls[childIdx];
+            if (!childCard || i === path.length - 1) {
+                points.push({ x: from.x, y: from.y + 14 });
+                break;
+            }
+            const childAnchors = anchorPoints(childCard, containerRect);
+            points.push(childAnchors.top);
+            idx = childIdx;
+            currentCard = childCard;
+        }
+        if (!points.length) return '';
+        const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+        const color = colorForPlayer(pid);
+        const isSelf = pid === playerId;
+        return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${isSelf ? 3 : 2}" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />`;
+    }).join('');
+    svg.innerHTML = lines;
+}
+
+function legendHtml(players = [], answersByPlayer = {}) {
+    if (!players.length) return '';
+    return `<div class="pyramid-legend">${players.map(p => {
+        const color = colorForPlayer(p.player_id);
+        const choiceLabel = pathLabel(answersByPlayer[p.player_id] || []);
+        return `<div class="legend-item"><span class="legend-dot" style="background:${color}"></span><strong>${p.name}</strong><span class="muted">${choiceLabel}</span></div>`;
+    }).join('')}</div>`;
+}
+
+function renderOverview(pyramid, answersByPlayer, lobby) {
     if (!overviewEl) return;
     if (!pyramid) {
         overviewEl.innerHTML = '<p class="muted">Keine aktive Runde.</p>';
         return;
     }
-    const nodes = pyramid.nodes || [];
-    const activePath = answersByPlayer[playerId] || [];
-    const html = nodes.map(node => {
-        const path = indexToPath(node.id || 0);
-        const pathLabel = path.length ? path.join(' / ') : 'Start';
-        const truthPrefix = activePath.slice(0, path.length).join('');
-        const isOnPath = truthPrefix === path.join('');
-        return `<div class="card level ${isOnPath ? 'info' : ''}">
-            <div class="muted">Pfad ${pathLabel}</div>
-            <div class="question">${node.question || ''}</div>
-            <div class="options">
-                <span class="pill ${activePath[path.length] === 'L' && isOnPath ? 'match' : ''}">Links: ${node.optionA || ''}</span>
-                <span class="pill ${activePath[path.length] === 'R' && isOnPath ? 'match' : ''}">Rechts: ${node.optionB || ''}</span>
-            </div>
-        </div>`;
-    }).join('');
-    overviewEl.innerHTML = `<h2>Alle Karten</h2><p class="muted">Alle Knoten der aktuellen Pyramide mit Pfad-Markern.</p>${html}`;
+    const grid = buildPyramidGrid(pyramid);
+    const players = lobby?.players || [];
+    overviewEl.innerHTML = `<h2>Alle Karten</h2><p class="muted">Vollständige Pyramide mit allen Antwortwegen.</p><div class="pyramid-visual">
+        <div class="pyramid-grid">${grid}</div>
+        <svg class="pyramid-lines"></svg>
+    </div>${legendHtml(players, answersByPlayer)}`;
+    requestAnimationFrame(() => drawPathLines(overviewEl.querySelector('.pyramid-visual'), pyramid, answersByPlayer, players));
 }
 
-function renderEditor(pyramid, answersByPlayer) {
+function renderEditor(pyramid, answersByPlayer, lobby) {
     if (!editorEl) return;
     if (!pyramid) {
         editorEl.innerHTML = '';
         return;
     }
-    const depth = pyramid.depth || 0;
-    let path = [...(answersByPlayer[playerId] || [])];
-
-    function render() {
-        let html = '<h2>Pfad bearbeiten</h2>';
-        for (let level = 0; level < depth; level++) {
-            const choice = path[level];
-            html += `<div class="card level"><div class="question">Ebene ${level + 1}</div>`;
-            html += '<div class="options">';
-            html += `<button type="button" class="choice ${choice === 'L' ? 'active' : ''}" data-level="${level}" data-val="L">Links</button>`;
-            html += `<button type="button" class="choice ${choice === 'R' ? 'active' : ''}" data-level="${level}" data-val="R">Rechts</button>`;
-            html += '</div></div>';
-        }
-        const pathLabel = path.length ? path.join(' / ') : 'Keine Auswahl';
-        html += `<div class="status muted">Aktueller Pfad: ${pathLabel}</div>`;
-        html += '<button id="save-path" class="primary full">Antwort speichern</button>';
-        editorEl.innerHTML = html;
-        editorEl.querySelectorAll('.choice').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const level = Number(btn.dataset.level);
-                const val = btn.dataset.val;
-                path[level] = val;
-                path = path.slice(0, level + 1);
-                render();
-            });
-        });
-        editorEl.querySelector('#save-path').addEventListener('click', () => {
-            if (path.length !== depth) {
-                alert('Bitte jede Ebene beantworten.');
-                return;
-            }
-            apiPost('submit_answers', { path: path.join('') }).then(() => fetchState());
-        });
-    }
-
-    render();
+    const players = lobby?.players || [];
+    editorEl.innerHTML = `<h2>Pfad-Legende</h2><p class="muted">Farben entsprechen den Linien in der Pyramide.</p>${legendHtml(players, answersByPlayer)}`;
 }
 
 function fetchState() {
@@ -97,14 +158,15 @@ function fetchState() {
     fetch(`api/state.php?team_id=${encodeURIComponent(teamId)}`)
         .then(r => r.json())
         .then(data => {
-            const state = data.lobby?.game_state || {};
+            const lobby = data.lobby || {};
+            const state = lobby.game_state || {};
             if (state.phase !== 'ROUND_ACTIVE') {
                 overviewEl.innerHTML = '<p class="muted">Keine aktive Runde. Bitte warte auf den nächsten Start.</p>';
                 editorEl.innerHTML = '';
                 return;
             }
-            renderOverview(state.pyramid, state.answers_by_player || {});
-            renderEditor(state.pyramid, state.answers_by_player || {});
+            renderOverview(state.pyramid, state.answers_by_player || {}, lobby);
+            renderEditor(state.pyramid, state.answers_by_player || {}, lobby);
         });
 }
 

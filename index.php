@@ -35,9 +35,7 @@ $config = load_config();
             </form>
         </section>
     </main>
-    <footer>
-        <p>Files werden lokal als JSON gespeichert. Stelle Schreibrechte auf <code>data/</code> sicher.</p>
-    </footer>
+    <footer></footer>
 </div>
 </body>
 </html>
