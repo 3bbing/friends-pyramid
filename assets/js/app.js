@@ -49,12 +49,30 @@ function fetchState() {
         });
 }
 
-function nodeIndex(path) {
-    let idx = 0;
-    for (const step of path) {
-        idx = step === 'L' ? idx * 2 + 1 : idx * 2 + 2;
+function levelPositionForIndex(idx) {
+    let level = 0;
+    let remaining = idx;
+    while (remaining >= level + 1) {
+        remaining -= (level + 1);
+        level++;
     }
-    return idx;
+    return { level, position: remaining };
+}
+
+function indexToPath(idx) {
+    const { level, position } = levelPositionForIndex(idx);
+    const rights = position;
+    const lefts = level - rights;
+    return [
+        ...Array.from({ length: lefts }, () => 'L'),
+        ...Array.from({ length: rights }, () => 'R'),
+    ];
+}
+
+function nodeIndex(path) {
+    const level = path.length;
+    const rights = path.filter(step => step === 'R').length;
+    return ((level * (level + 1)) / 2) + rights;
 }
 
 function pathLabel(path, empty = '—') {
@@ -66,8 +84,8 @@ function groupByLevel(pyramid) {
     const depth = pyramid.depth || 0;
     const nodes = pyramid.nodes || [];
     for (let level = 0; level < depth; level++) {
-        const start = (2 ** level) - 1;
-        const count = 2 ** level;
+        const start = (level * (level + 1)) / 2;
+        const count = level + 1;
         levels.push(nodes.slice(start, start + count));
     }
     return levels;
@@ -121,7 +139,10 @@ function drawPathLines(container, pyramid, answersByPlayer, highlightPlayerId = 
             const anchors = anchorPoints(currentCard, containerRect);
             const from = choice === 'L' ? anchors.left : anchors.right;
             points.push(from);
-            const childIdx = choice === 'L' ? idx * 2 + 1 : idx * 2 + 2;
+            const { level, position } = levelPositionForIndex(idx);
+            const childLevel = level + 1;
+            const childPos = position + (choice === 'R' ? 1 : 0);
+            const childIdx = ((childLevel * (childLevel + 1)) / 2) + childPos;
             const childCard = nodeEls[childIdx];
             if (!childCard || i === path.length - 1) {
                 points.push({ x: from.x, y: from.y + 14 });
@@ -362,11 +383,6 @@ function updateUi(lobby) {
             stayBtn.textContent = stayInLobby ? 'Zur Spielansicht wechseln' : 'In der Lobby bleiben';
             stayBtn.dataset.active = stayInLobby ? '1' : '0';
         }
-    }
-    if (phase === 'ROUND_REVEAL' && !redirectedToPyramid) {
-        redirectedToPyramid = true;
-        window.location.href = `pyramid.php?team=${encodeURIComponent(teamId)}`;
-        return;
     }
     document.getElementById('lobby-view').classList.toggle('hidden', phase !== 'LOBBY_WAITING');
     document.getElementById('round-view').classList.toggle('hidden', phase !== 'ROUND_ACTIVE');

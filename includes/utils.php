@@ -307,7 +307,7 @@ function require_player(string $teamId): array
 
 function build_pyramid_from_cards(array $cards, int $depth): array
 {
-    $nodeCount = (2 ** $depth) - 1;
+    $nodeCount = (int)(($depth * ($depth + 1)) / 2);
     if ($nodeCount > count($cards)) {
         throw new RuntimeException('Not enough cards for requested depth');
     }
@@ -327,7 +327,7 @@ function max_depth_for_cards(array $cards, int $cap = 6): int
 {
     $count = count($cards);
     $depth = 0;
-    while ($depth < $cap && ((2 ** ($depth + 1)) - 1) <= $count) {
+    while ($depth < $cap && ((($depth + 1) * ($depth + 2)) / 2) <= $count) {
         $depth++;
     }
     return max(1, $depth);

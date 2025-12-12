@@ -14,7 +14,8 @@ body {
   color: var(--text);
 }
 .page {
-  max-width: 960px;
+  width: 95vw;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -122,6 +123,8 @@ button.choice.active { border: 2px solid var(--accent); }
 .history-row + .history-row { margin-top: .5rem; }
 .history-row .actions { display: flex; gap: .35rem; align-items: center; }
 .history-row.ongoing { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35); }
+
+.pyramid-page main.card { min-height: 95vh; }
 
 @media (min-width: 720px) {
   .page { padding: 2rem; }
